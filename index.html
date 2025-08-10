@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>洛杉矶时间 | LA Clock</title>
+  <meta name="description" content="一个显示美国洛杉矶当前时间的极简网站 (America/Los_Angeles)。">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='48' fill='%23000'/%3E%3Cpath d='M50 18v34l22 12' stroke='%23fff' stroke-width='8' stroke-linecap='round' fill='none'/%3E%3C/svg%3E">
+  <style>
+    :root {
+      --bg: #0b1020;
+      --panel: #121a2e;
+      --text: #e6ecff;
+      --muted: #a9b4d0;
+      --accent: #7aa2ff;
+      --ring: rgba(122,162,255,.25);
+    }
+    @media (prefers-color-scheme: light) {
+      :root {
+        --bg: #f5f7ff;
+        --panel: #ffffff;
+        --text: #0b1020;
+        --muted: #5f6b86;
+        --accent: #3a63ff;
+        --ring: rgba(58,99,255,.20);
+      }
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body {
+      margin: 0;
+      font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+      background: radial-gradient(1200px 800px at 70% 20%, var(--ring), transparent 60%), var(--bg);
+      color: var(--text);
+      display: grid;
+      place-items: center;
+      padding: 24px;
+    }
+    .card {
+      width: min(880px, 92vw);
+      border-radius: 24px;
+      background: linear-gradient(135deg, color-mix(in oklab, var(--panel), transparent 0%), color-mix(in oklab, var(--panel), black 6%));
+      box-shadow:
+        0 10px 30px rgba(0,0,0,.25),
+        0 0 0 1px color-mix(in oklab, var(--panel), white 8%);
+      padding: clamp(24px, 4vw, 40px);
+    }
+    .row { display: grid; gap: 16px; }
+    @media (min-width: 720px) {
+      .row { grid-template-columns: 1fr auto; align-items: center; }
+    }
+    h1 {
+      margin: 0 0 10px 0;
+      font-weight: 800;
+      letter-spacing: 0.2px;
+      line-height: 1.1;
+      font-size: clamp(28px, 4vw, 40px);
+    }
+    p { margin: 0; color: var(--muted); font-size: clamp(14px, 1.6vw, 16px); }
+
+    .time {
+      display: grid;
+      gap: 4px;
+      justify-items: end;
+      text-align: right;
+    }
+    .digital {
+      font-variant-numeric: tabular-nums;
+      font-size: clamp(48px, 9vw, 120px);
+      line-height: 1;
+      font-weight: 800;
+      letter-spacing: .5px;
+    }
+    .sub {
+      display: flex; gap: 12px; align-items: baseline; justify-content: flex-end;
+      color: var(--muted);
+      font-variant-numeric: tabular-nums;
+    }
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: color-mix(in oklab, var(--panel), white 6%);
+      box-shadow: 0 0 0 1px color-mix(in oklab, var(--panel), white 8%) inset;
+      color: var(--muted);
+      font-size: 13px;
+    }
+    .chip .dot { width: 8px; height: 8px; border-radius: 999px; background: var(--accent); box-shadow: 0 0 0 3px var(--ring); }
+
+    footer {
+      margin-top: 22px;
+      display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between;
+      color: var(--muted);
+      font-size: 13px;
+    }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .btn {
+      appearance: none; border: 0; cursor: pointer;
+      padding: 10px 14px; border-radius: 12px; font-weight: 600;
+      background: color-mix(in oklab, var(--panel), white 8%);
+      color: var(--text);
+      box-shadow: 0 0 0 1px color-mix(in oklab, var(--panel), white 10%) inset;
+    }
+  </style>
+</head>
+<body>
+  <main class="card" role="main" aria-label="洛杉矶时间">
+    <div class="row">
+      <header>
+        <h1>洛杉矶当前时间</h1>
+        <p>时区：America/Los_Angeles（与你本地时间自动比较）。</p>
+      </header>
+      <section class="time" aria-live="polite">
+        <div class="digital" id="clock">--:--:--</div>
+        <div class="sub">
+          <span id="date">—</span>
+          <span>•</span>
+          <span id="offset">—</span>
+        </div>
+      </section>
+    </div>
+
+    <footer>
+      <div class="chip" title="本地时间">
+        <span class="dot" aria-hidden="true"></span>
+        <span id="local">你本地时间：--:--</span>
+      </div>
+      <div>
+        <button class="btn" id="copy">复制网址</button>
+      </div>
+    </footer>
+  </main>
+
+  <script>
+    // --- Utilities
+    const LA_TZ = 'America/Los_Angeles';
+
+    function fmtTime(date, opts={}) {
+      return new Intl.DateTimeFormat('zh-CN', {
+        hour: '2-digit', minute: '2-digit', second: '2-digit',
+        hour12: false, timeZone: LA_TZ, ...opts
+      }).format(date);
+    }
+
+    function fmtDate(date) {
+      return new Intl.DateTimeFormat('zh-CN', {
+        year: 'numeric', month: 'long', day: '2-digit', weekday: 'long',
+        timeZone: LA_TZ
+      }).format(date);
+    }
+
+    function getOffsetText() {
+      try {
+        const now = new Date();
+        const localHour = Number(new Intl.DateTimeFormat('en-US', { hour: '2-digit', hour12: false }).format(now));
+        const laHour = Number(new Intl.DateTimeFormat('en-US', { hour: '2-digit', hour12: false, timeZone: LA_TZ }).format(now));
+        // Compute rough offset (hours) using UTC offsets to be accurate with DST
+        const localOffsetMin = -now.getTimezoneOffset(); // minutes from UTC
+        const laOffsetMin = - new Date(now.toLocaleString('en-US', { timeZone: LA_TZ })).getTimezoneOffset();
+        const diffH = (laOffsetMin - localOffsetMin) / 60; // LA - local
+        const sign = diffH >= 0 ? '-' : '+'; // LA behind → show "晚"/"早" friendly text below
+        const absH = Math.abs(diffH);
+        const text = diffH === 0 ? '与你本地同一时区' : `比你本地时间慢 ${absH} 小时`;
+        return { diffH, text };
+      } catch (e) { return { diffH: NaN, text: '—' }; }
+    }
+
+    function tick() {
+      const now = new Date();
+      document.getElementById('clock').textContent = fmtTime(now);
+      document.getElementById('date').textContent = fmtDate(now);
+      document.getElementById('local').textContent = `你本地时间：${new Intl.DateTimeFormat('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false }).format(now)}`;
+      document.getElementById('offset').textContent = getOffsetText().text;
+    }
+
+    // Start
+    tick();
+    setInterval(tick, 1000);
+
+    // Copy current page URL (useful after部署)
+    document.getElementById('copy').addEventListener('click', async () => {
+      try {
+        await navigator.clipboard.writeText(location.href);
+        const btn = document.getElementById('copy');
+        const old = btn.textContent; btn.textContent = '已复制 ✓';
+        setTimeout(() => btn.textContent = old, 1000);
+      } catch(e) {
+        alert('复制失败，请手动复制地址栏中的网址。');
+      }
+    });
+  </script>
+</body>
+</html>
